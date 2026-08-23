@@ -2,8 +2,7 @@
 
 Using a structured array (instead of a Python object per tile) means the
 whole map can be rendered and queried with vectorized numpy operations
-instead of nested Python loops -- this matters once dungeon generation
-(Phase 1) starts doing cellular-automata passes over the grid.
+instead of nested Python loops, which is much faster.
 """
 from __future__ import annotations
 
@@ -24,14 +23,15 @@ tile_dt = np.dtype(
     [
         ("walkable", bool),
         ("transparent", bool),
-        ("dark", graphic_dt),  # What's rendered when not currently visible.
+        ("visible", bool),    # For FOV
+        ("explored", bool),   # For map memory
+        ("dark", graphic_dt),
     ]
 )
 
 
 def new_tile(*, walkable: int, transparent: int, dark: tuple) -> np.ndarray:
-    """Helper for defining individual tile types as numpy structured array rows."""
-    return np.array((walkable, transparent, dark), dtype=tile_dt)
+    return np.array((walkable, transparent, False, False, dark), dtype=tile_dt)
 
 
 FLOOR = new_tile(

@@ -1,13 +1,13 @@
 """Actions decouple 'what key was pressed' from 'what happens in the game'.
 
 The input handler only ever produces an Action; it never touches game state
-directly. This is what lets Phase 2 add a BumpAction that turns into either
-MovementAction or a MeleeAction depending on what's in the destination tile,
-without the input-handling code needing to know anything about combat.
+directly.
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
+from roguelike.engine.fov import compute_fov
 
 if TYPE_CHECKING:
     from roguelike.engine.engine import Engine
@@ -37,6 +37,13 @@ class MovementAction(Action):
         dest_y = engine.player.y + self.dy
 
         if not engine.game_map.is_walkable(dest_x, dest_y):
-            return  # Blocked by a wall or map edge -- do nothing (Phase 0 has no bump messages yet).
+            return  # Blocked by a wall or map edge
 
         engine.player.move(self.dx, self.dy)
+        engine.update_fov()
+        
+        # Check for items to pick up
+        for item in engine.items_on_ground[:]:  # Copy list to safely modify
+            if item.x == dest_x and item.y == dest_y:
+                item.pick_up(engine)
+                engine.items_on_ground.remove(item)
