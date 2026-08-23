@@ -11,11 +11,13 @@ A turn-based, full-ASCII roguelike, taking design inspiration from *ADOM*
 
 ## Status: Phase 1 — Dungeon Generation and FOV.
 
+- [x] BSP Generator.
+- [x] Shadowcasting.
+- [x] Items.
+- [x] Items Spawning.
+- [x] Player spawns outside of a wall.
 
-
-
-
-
+## Status: Phase 2 - AI and Enemies.
 
 
 
@@ -27,9 +29,7 @@ A turn-based, full-ASCII roguelike, taking design inspiration from *ADOM*
 
 
 ## Notes to self:
-
-- [x] BSP Generator.
-- [x] Shadowcasting.
-- [x] Items.
-- [x] Items Spawning.
-- [x] Player spawns outside of a wall.
+- AI.
+- Enemies.
+- Stuff and stuff.
+- Inventoree.
