@@ -1,14 +1,33 @@
-"""Phase 0 smoke tests. None of these touch tcod's window/context, so they
+"""Phase 0/1 smoke tests. None of these touch tcod's window/context, so they
 run fine in CI with no display attached -- only game logic is under test.
 """
+import numpy as np
+
 from roguelike.engine.actions import MovementAction
 from roguelike.engine.engine import Engine
 from roguelike.entities.entity import Entity
+from roguelike.world import tile_types
 from roguelike.world.game_map import GameMap
 
 
-def make_engine(width=30, height=20):
-    game_map = GameMap(width, height)
+def make_engine():
+    """Build an engine around a small, hand-built, fully deterministic map --
+    NOT the random BSP generator. Movement/collision tests need to know
+    exactly which tiles are floor vs wall; a randomly generated map can't
+    guarantee that from run to run, which is exactly what made the old
+    version of these tests flaky (see test_generated_map_* below for the
+    tests that actually exercise the random generator's properties instead).
+    """
+    game_map = GameMap.__new__(GameMap)  # Bypass __init__ / generation entirely.
+    game_map.width, game_map.height = 10, 10
+    game_map.depth = 1
+    game_map.tiles = np.full((10, 10), fill_value=tile_types.WALL, order="F")
+    game_map.tiles[2:8, 2:8] = tile_types.FLOOR  # A known 6x6 open room.
+    game_map.rooms = [(2, 2, 6, 6)]
+    game_map.corridors = []
+    game_map.up_stairs = None
+    game_map.down_stairs = None
+
     player = Entity(x=5, y=5, char="@", color=(255, 255, 255), name="Player")
     return Engine(player=player, game_map=game_map), game_map
 
@@ -21,9 +40,46 @@ def test_game_map_in_bounds():
     assert not game_map.in_bounds(30, 20)
 
 
-def test_test_room_is_walkable_in_the_middle():
+def test_generated_map_has_walkable_tiles():
+    """No matter how the BSP tree splits, generation must produce at least
+    one walkable tile -- a map that's solid wall everywhere is a generator
+    bug, regardless of where any specific coordinate happens to land."""
     game_map = GameMap(30, 20)
-    assert game_map.is_walkable(15, 10)
+    assert game_map.tiles["walkable"].any()
+
+
+def test_generated_map_is_fully_connected():
+    """Every room must be reachable from the first room via floor tiles.
+    This is the real property that matters -- not whether any one fixed
+    coordinate happens to be floor, which depends on random room placement
+    and will vary from run to run."""
+    from collections import deque
+
+    game_map = GameMap(60, 40)
+    if not game_map.rooms:
+        return  # Degenerate case: nothing to check.
+
+    start = (
+        game_map.rooms[0][0] + game_map.rooms[0][2] // 2,
+        game_map.rooms[0][1] + game_map.rooms[0][3] // 2,
+    )
+    seen = {start}
+    queue = deque([start])
+    while queue:
+        x, y = queue.popleft()
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nx, ny = x + dx, y + dy
+            if (
+                game_map.in_bounds(nx, ny)
+                and game_map.is_walkable(nx, ny)
+                and (nx, ny) not in seen
+            ):
+                seen.add((nx, ny))
+                queue.append((nx, ny))
+
+    for rx, ry, rw, rh in game_map.rooms:
+        center = (rx + rw // 2, ry + rh // 2)
+        assert center in seen, f"Room at {center} is unreachable from spawn"
 
 
 def test_map_edges_are_walls():
@@ -42,7 +98,8 @@ def test_movement_action_moves_player_into_open_floor():
 
 def test_movement_action_blocked_by_wall_does_not_move_player():
     engine, game_map = make_engine()
-    # Force the player right up against the room's left wall.
+    # Force the player right up against the test room's left wall (tile x=1
+    # is guaranteed wall on the hand-built 10x10 map from make_engine()).
     engine.player.x, engine.player.y = 2, 5
     assert not game_map.is_walkable(1, 5)
 
