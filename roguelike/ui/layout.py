@@ -1,13 +1,12 @@
 """Single source of truth for screen geometry.
 
-ADOM-style UI is three regions of one character grid: a map viewport, a
-stats sidebar, and a message log. Keeping the numbers here (instead of
+Keeping the numbers here (instead of
 scattered as magic numbers through render code) means resizing the layout
 later is a one-file change.
 """
 
 SCREEN_WIDTH = 100
-SCREEN_HEIGHT = 45
+SCREEN_HEIGHT = 100
 
 SIDEBAR_WIDTH = 20
 LOG_HEIGHT = 8

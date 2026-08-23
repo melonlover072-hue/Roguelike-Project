@@ -8,6 +8,7 @@ from pathlib import Path
 
 import tcod
 
+from roguelike.world.item_spawner import spawn_items
 from roguelike.engine.engine import Engine
 from roguelike.entities.entity import Entity
 from roguelike.ui import layout
@@ -50,16 +51,27 @@ def load_tileset() -> "tcod.tileset.Tileset | None":
 
 def main() -> None:
     game_map = GameMap(layout.MAP_WIDTH, layout.MAP_HEIGHT)
-
+    
+    # Spawn items
+    items_on_ground = spawn_items(game_map)
+    
+    # Get a valid starting position
+    start_x, start_y = game_map.get_random_floor_tile()
+    
     player = Entity(
-        x=layout.MAP_WIDTH // 2,
-        y=layout.MAP_HEIGHT // 2,
+        x=start_x,
+        y=start_y,
         char="@",
         color=(255, 255, 255),
         name="Player",
     )
 
     engine = Engine(player=player, game_map=game_map)
+    engine.items_on_ground = items_on_ground  # Add spawned items
+    
+    # Initial FOV calculation
+    engine.update_fov()
+    
     tileset = load_tileset()
 
     with tcod.context.new(

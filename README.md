@@ -28,6 +28,8 @@ A turn-based, full-ASCII roguelike, taking design inspiration from *ADOM*
 
 ## Notes to self:
 
-- BSP Generator.
-- Shadowcasting.
-- Update README when those are in.
+- [x] BSP Generator.
+- [x] Shadowcasting.
+- [x] Items.
+- [x] Items Spawning.
+- [x] Player spawns outside of a wall.

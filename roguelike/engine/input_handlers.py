@@ -1,9 +1,7 @@
 """Translates raw keyboard events into Action objects.
 
 Deliberately supports arrow keys, numpad, and vi-keys (hjkl + diagonals) from
-day one -- vi-key movement is a roguelike-genre convention going back to
-Rogue itself, and ADOM supports it too, so it's a cheap authenticity detail
-to get right early rather than bolt on later.
+day one, so that the player can choose their preferred movement style.
 """
 from __future__ import annotations
 

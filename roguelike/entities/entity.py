@@ -3,8 +3,7 @@
 Phase 0 keeps this deliberately minimal (position + appearance + a movement
 blocker flag). Phase 2 onward will move stats, AI, and inventory onto this
 via composition (an `ai` attribute, an `inventory` attribute, etc.) rather
-than growing this class into a god object -- that split is set up now so
-later phases don't require reworking this file.
+than growing this class into a god object that does everything.
 """
 from __future__ import annotations
 

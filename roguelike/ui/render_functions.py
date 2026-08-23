@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterable
 
+import numpy as np
 import tcod
 
 from roguelike.ui import layout
@@ -14,27 +15,51 @@ if TYPE_CHECKING:
 
 
 def render_map(console: tcod.console.Console, game_map: "GameMap") -> None:
-    """Blit the map's tile graphics into the map viewport region.
+    """Render the map with FOV — visible tiles bright, explored dim, unexplored hidden."""
+    
+    # Get viewport slice
+    viewport = (
+        slice(layout.MAP_X, layout.MAP_X + game_map.width),
+        slice(layout.MAP_Y, layout.MAP_Y + game_map.height),
+    )
+    
+    # Start with empty (black) tiles
+    ch = np.full((game_map.width, game_map.height), ord(" "), dtype=np.int32)
+    fg = np.zeros((game_map.width, game_map.height, 3), dtype=np.uint8)
+    bg = np.zeros((game_map.width, game_map.height, 3), dtype=np.uint8)
+    
+    # Visible tiles (bright)
+    visible = game_map.tiles["visible"]
+    ch[visible] = game_map.tiles["dark"]["ch"][visible]
+    fg[visible] = game_map.tiles["dark"]["fg"][visible]
+    bg[visible] = game_map.tiles["dark"]["bg"][visible]
+    
+    # Explored but not visible tiles (dimmer)
+    explored_only = game_map.tiles["explored"] & ~visible
+    ch[explored_only] = game_map.tiles["dark"]["ch"][explored_only]
+    fg[explored_only] = game_map.tiles["dark"]["fg"][explored_only] // 2
+    bg[explored_only] = game_map.tiles["dark"]["bg"][explored_only] // 2
+    
+    # Render to console - assign fg and bg separately
+    console.rgb[viewport]["fg"] = fg
+    console.rgb[viewport]["bg"] = bg
+    console.ch[viewport] = ch
 
-    Phase 0 has no FOV yet, so this just draws every tile's "dark" graphic
-    unconditionally -- Phase 1 adds a visible/explored mask here without
-    needing to change anything outside this function.
-    """
-    console.rgb[
-        layout.MAP_X : layout.MAP_X + game_map.width,
-        layout.MAP_Y : layout.MAP_Y + game_map.height,
-    ] = game_map.tiles["dark"]
 
-
-def render_entities(console: tcod.console.Console, entities: Iterable["Entity"]) -> None:
+def render_entities(
+    console: tcod.console.Console, 
+    entities: Iterable["Entity"],
+    game_map: "GameMap",
+) -> None:
     for entity in entities:
-        console.print(
-            x=layout.MAP_X + entity.x,
-            y=layout.MAP_Y + entity.y,
-            string=entity.char,
-            fg=entity.color,
-        )
-
+        # Only draw entities that are in visible tiles
+        if game_map.tiles[entity.x, entity.y]["visible"]:
+            console.print(
+                x=layout.MAP_X + entity.x,
+                y=layout.MAP_Y + entity.y,
+                string=entity.char,
+                fg=entity.color,
+            )
 
 def render_sidebar(console: tcod.console.Console, player: "Entity") -> None:
     console.draw_frame(
@@ -74,3 +99,14 @@ def render_log(console: tcod.console.Console, messages: list[str]) -> None:
     visible = messages[-(layout.LOG_HEIGHT - 2) :]
     for i, message in enumerate(visible):
         console.print(x=layout.LOG_X + 2, y=layout.LOG_Y + 1 + i, string=message)
+        
+def render_items(console: tcod.console.Console, items: list, game_map: "GameMap") -> None:
+    """Render items on the ground."""
+    for item in items:
+        if game_map.tiles[item.x, item.y]["visible"]:
+            console.print(
+                x=layout.MAP_X + item.x,
+                y=layout.MAP_Y + item.y,
+                string=item.char,
+                fg=item.color,
+            )
