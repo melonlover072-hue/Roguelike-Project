@@ -6,7 +6,7 @@ later is a one-file change.
 """
 
 SCREEN_WIDTH = 100
-SCREEN_HEIGHT = 100
+SCREEN_HEIGHT = 60
 
 SIDEBAR_WIDTH = 20
 LOG_HEIGHT = 8
