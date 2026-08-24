@@ -169,9 +169,13 @@ class Potion(Consumable):
     
     def apply_effect(self, engine: "Engine") -> None:
         """Heal the player."""
-        healed = min(self.healing_amount, engine.player.max_hp - engine.player.hp)
+        fighter = engine.player.fighter
+        if fighter is None:
+            engine.add_message("Nothing happens.")
+            return
+
+        healed = fighter.heal(self.healing_amount)
         if healed > 0:
-            engine.player.hp += healed
             engine.add_message(f"You feel better! (+{healed} HP)")
         else:
             engine.add_message("You are already at full health.")

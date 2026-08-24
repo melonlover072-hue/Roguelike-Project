@@ -11,6 +11,7 @@ import tcod
 from roguelike.world.item_spawner import spawn_items
 from roguelike.engine.engine import Engine
 from roguelike.entities.entity import Entity
+from roguelike.entities.fighter import Fighter
 from roguelike.ui import layout
 from roguelike.world.game_map import GameMap
 
@@ -64,6 +65,7 @@ def main() -> None:
         char="@",
         color=(255, 255, 255),
         name="Player",
+        fighter=Fighter(hp=30, defense=2, power=5),
     )
 
     engine = Engine(player=player, game_map=game_map)

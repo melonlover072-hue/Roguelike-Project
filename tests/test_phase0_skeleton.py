@@ -6,6 +6,8 @@ import numpy as np
 from roguelike.engine.actions import MovementAction
 from roguelike.engine.engine import Engine
 from roguelike.entities.entity import Entity
+from roguelike.entities.fighter import Fighter
+from roguelike.entities.item import Potion
 from roguelike.world import tile_types
 from roguelike.world.game_map import GameMap
 
@@ -116,3 +118,68 @@ def test_movement_action_blocked_by_map_edge_does_not_crash():
     MovementAction(dx=-1, dy=-1).perform(engine)
     assert engine.player.x == 0
     assert engine.player.y == 0
+
+
+def test_fighter_take_damage_reduces_hp():
+    fighter = Fighter(hp=30, defense=2, power=5)
+    taken = fighter.take_damage(10)
+    assert taken == 10
+    assert fighter.hp == 20
+
+
+def test_fighter_take_damage_clamps_at_zero_not_negative():
+    fighter = Fighter(hp=10, defense=2, power=5)
+    taken = fighter.take_damage(999)
+    assert taken == 10  # Only 10 HP existed to take, not 999.
+    assert fighter.hp == 0
+    assert not fighter.is_alive
+
+
+def test_fighter_heal_clamps_at_max_hp():
+    fighter = Fighter(hp=30, defense=2, power=5)
+    fighter.take_damage(5)  # hp: 25/30
+    healed = fighter.heal(999)
+    assert healed == 5  # Only 5 HP of headroom existed, not 999.
+    assert fighter.hp == 30
+
+
+def test_fighter_is_alive():
+    fighter = Fighter(hp=1, defense=0, power=0)
+    assert fighter.is_alive
+    fighter.take_damage(1)
+    assert not fighter.is_alive
+
+
+def test_entity_with_fighter_sets_back_reference():
+    fighter = Fighter(hp=10, defense=0, power=0)
+    entity = Entity(x=0, y=0, char="@", color=(255, 255, 255), fighter=fighter)
+    assert entity.fighter is fighter
+    assert fighter.entity is entity
+
+
+def test_entity_without_fighter_has_none():
+    entity = Entity(x=0, y=0, char="!", color=(255, 255, 255))
+    assert entity.fighter is None
+
+
+def test_potion_heals_player_through_fighter_component():
+    engine, _ = make_engine()
+    engine.player.fighter = Fighter(hp=30, defense=2, power=5)
+    engine.player.fighter.take_damage(15)  # hp: 15/30
+
+    potion = Potion(healing_amount=10)
+    potion.apply_effect(engine)
+
+    assert engine.player.fighter.hp == 25
+    assert "feel better" in engine.messages[-1]
+
+
+def test_potion_at_full_health_does_not_overheal_or_crash():
+    engine, _ = make_engine()
+    engine.player.fighter = Fighter(hp=30, defense=2, power=5)  # Already full.
+
+    potion = Potion(healing_amount=10)
+    potion.apply_effect(engine)  # Must not raise, and must not exceed max_hp.
+
+    assert engine.player.fighter.hp == 30
+    assert "already at full health" in engine.messages[-1]

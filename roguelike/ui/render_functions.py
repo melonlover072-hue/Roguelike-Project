@@ -82,6 +82,13 @@ def render_sidebar(console: tcod.console.Console, player: "Entity") -> None:
         y=layout.SIDEBAR_Y + 4,
         string=f"pos: {player.x},{player.y}",
     )
+    if player.fighter is not None:
+        console.print(
+            x=layout.SIDEBAR_X + 2,
+            y=layout.SIDEBAR_Y + 6,
+            string=f"HP: {player.fighter.hp}/{player.fighter.max_hp}",
+            fg=(0, 200, 0) if player.fighter.hp > player.fighter.max_hp // 3 else (200, 0, 0),
+        )
 
 
 def render_log(console: tcod.console.Console, messages: list[str]) -> None:
