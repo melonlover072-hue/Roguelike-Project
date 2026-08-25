@@ -58,3 +58,18 @@ class Engine:
         # Optional: Keep log from growing too large
         if len(self.messages) > 100:
             self.messages.pop(0)
+            from roguelike.entities.entity import Entity
+from roguelike.entities.enemies import (
+    create_rat,
+    create_wolf,
+    create_skeleton,
+    create_goblin,
+)
+
+
+    def spawn_enemy(
+    enemy_factory,
+    x: int,
+    y: int,
+) -> Entity:
+    return enemy_factory(x, y)
