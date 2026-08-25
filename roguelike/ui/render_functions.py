@@ -1,5 +1,4 @@
-"""All drawing lives here, kept out of Engine so rendering can be swapped
-or unit-tested independently of game logic later."""
+"""All drawing lives here."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterable
@@ -15,44 +14,36 @@ if TYPE_CHECKING:
 
 
 def render_map(console: tcod.console.Console, game_map: "GameMap") -> None:
-    """Render the map with FOV — visible tiles bright, explored dim, unexplored hidden."""
-    
-    # Get viewport slice
     viewport = (
         slice(layout.MAP_X, layout.MAP_X + game_map.width),
         slice(layout.MAP_Y, layout.MAP_Y + game_map.height),
     )
-    
-    # Start with empty (black) tiles
+
     ch = np.full((game_map.width, game_map.height), ord(" "), dtype=np.int32)
     fg = np.zeros((game_map.width, game_map.height, 3), dtype=np.uint8)
     bg = np.zeros((game_map.width, game_map.height, 3), dtype=np.uint8)
-    
-    # Visible tiles (bright)
+
     visible = game_map.tiles["visible"]
     ch[visible] = game_map.tiles["dark"]["ch"][visible]
     fg[visible] = game_map.tiles["dark"]["fg"][visible]
     bg[visible] = game_map.tiles["dark"]["bg"][visible]
-    
-    # Explored but not visible tiles (dimmer)
+
     explored_only = game_map.tiles["explored"] & ~visible
     ch[explored_only] = game_map.tiles["dark"]["ch"][explored_only]
     fg[explored_only] = game_map.tiles["dark"]["fg"][explored_only] // 2
     bg[explored_only] = game_map.tiles["dark"]["bg"][explored_only] // 2
-    
-    # Render to console - assign fg and bg separately
+
     console.rgb[viewport]["fg"] = fg
     console.rgb[viewport]["bg"] = bg
     console.ch[viewport] = ch
 
 
 def render_entities(
-    console: tcod.console.Console, 
+    console: tcod.console.Console,
     entities: Iterable["Entity"],
     game_map: "GameMap",
 ) -> None:
     for entity in entities:
-        # Only draw entities that are in visible tiles
         if game_map.tiles[entity.x, entity.y]["visible"]:
             console.print(
                 x=layout.MAP_X + entity.x,
@@ -61,7 +52,13 @@ def render_entities(
                 fg=entity.color,
             )
 
-def render_sidebar(console: tcod.console.Console, player: "Entity") -> None:
+
+def render_sidebar(
+    console: tcod.console.Console,
+    player: "Entity",
+    inventory: list | None = None,
+    equipment: dict | None = None,
+) -> None:
     console.draw_frame(
         x=layout.SIDEBAR_X,
         y=layout.SIDEBAR_Y,
@@ -90,6 +87,25 @@ def render_sidebar(console: tcod.console.Console, player: "Entity") -> None:
             fg=(0, 200, 0) if player.fighter.hp > player.fighter.max_hp // 3 else (200, 0, 0),
         )
 
+    y = layout.SIDEBAR_Y + 8
+    if inventory is not None:
+        console.print(
+            x=layout.SIDEBAR_X + 2,
+            y=y,
+            string=f"Inv: {len(inventory)}/20",
+        )
+        y += 2
+
+    if equipment:
+        weapon = equipment.get("weapon")
+        if weapon:
+            console.print(
+                x=layout.SIDEBAR_X + 2,
+                y=y,
+                string=f"Wpn: {weapon.name}",
+            )
+            y += 2
+
 
 def render_log(console: tcod.console.Console, messages: list[str]) -> None:
     console.draw_frame(
@@ -102,13 +118,12 @@ def render_log(console: tcod.console.Console, messages: list[str]) -> None:
         fg=(255, 255, 255),
         bg=(0, 0, 0),
     )
-    # Render the most recent messages, oldest at top, newest at bottom.
     visible = messages[-(layout.LOG_HEIGHT - 2) :]
     for i, message in enumerate(visible):
         console.print(x=layout.LOG_X + 2, y=layout.LOG_Y + 1 + i, string=message)
-        
+
+
 def render_items(console: tcod.console.Console, items: list, game_map: "GameMap") -> None:
-    """Render items on the ground."""
     for item in items:
         if game_map.tiles[item.x, item.y]["visible"]:
             console.print(
@@ -117,3 +132,42 @@ def render_items(console: tcod.console.Console, items: list, game_map: "GameMap"
                 string=item.char,
                 fg=item.color,
             )
+
+
+def render_inventory_menu(
+    console: tcod.console.Console,
+    inventory: list,
+    equipment: dict,
+    title: str,
+) -> None:
+    width = 50
+    height = min(len(inventory) + 4, 28)
+    x = layout.MAP_WIDTH // 2 - width // 2
+    y = layout.MAP_HEIGHT // 2 - height // 2
+
+    console.draw_frame(
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+        title=title,
+        clear=True,
+        fg=(255, 255, 255),
+        bg=(0, 0, 0),
+    )
+
+    if not inventory:
+        console.print(x=x + 2, y=y + 2, string="(Empty)")
+        return
+
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    for i, item in enumerate(inventory):
+        if i >= len(letters):
+            break
+        letter = letters[i]
+        suffix = " (equipped)" if getattr(item, "equipped", False) else ""
+        console.print(
+            x=x + 2,
+            y=y + 2 + i,
+            string=f"{letter}) {item.display_name}{suffix}",
+        )

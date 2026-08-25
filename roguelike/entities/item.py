@@ -62,6 +62,8 @@ class Item:
     
     def drop(self, engine: "Engine") -> bool:
         """Drop this item at the player's feet."""
+        if getattr(self, "equipped", False):
+            self.unequip(engine)
         self.x = engine.player.x
         self.y = engine.player.y
         engine.inventory.remove(self)
