@@ -6,6 +6,7 @@ import numpy as np
 from roguelike.engine.actions import MovementAction
 from roguelike.engine.engine import Engine
 from roguelike.entities.entity import Entity
+from roguelike.entities.enemies import create_rat
 from roguelike.entities.fighter import Fighter
 from roguelike.entities.item import Potion
 from roguelike.world import tile_types
@@ -183,3 +184,45 @@ def test_potion_at_full_health_does_not_overheal_or_crash():
 
     assert engine.player.fighter.hp == 30
     assert "already at full health" in engine.messages[-1]
+
+
+def test_walking_onto_item_with_full_inventory_does_not_destroy_it():
+    """Regression test: stepping onto an item while the inventory is full
+    used to remove it from the ground unconditionally, even though pick_up()
+    correctly refused to add it to inventory -- destroying the item with no
+    in-game explanation. It should stay on the ground instead."""
+    engine, game_map = make_engine()
+    engine.player.x, engine.player.y = 5, 5
+
+    engine.inventory = [Potion() for _ in range(engine.max_inventory_size)]
+    stuck_potion = Potion(x=6, y=5)
+    engine.items_on_ground.append(stuck_potion)
+
+    MovementAction(dx=1, dy=0).perform(engine)
+
+    assert len(engine.inventory) == engine.max_inventory_size  # Unchanged.
+    assert stuck_potion in engine.items_on_ground  # Still there, not destroyed.
+
+
+def test_spawn_enemy_adds_a_fighter_entity_to_engine():
+    engine, _ = make_engine()
+    starting_count = len(engine.entities)
+
+    enemy = engine.spawn_enemy(create_rat)
+
+    assert len(engine.entities) == starting_count + 1
+    assert enemy in engine.entities
+    assert enemy.fighter is not None
+    assert enemy.fighter.is_alive
+
+
+def test_spawn_enemy_never_overlaps_an_existing_entity():
+    engine, _ = make_engine()
+    # The hand-built test map only has a 6x6 room -- 36 tiles -- so spawning
+    # a bunch of enemies is a reasonably strong stress test for the overlap
+    # check without needing an enormous map.
+    for _ in range(20):
+        engine.spawn_enemy(create_rat)
+
+    positions = [(e.x, e.y) for e in engine.entities]
+    assert len(positions) == len(set(positions)), "Two entities ended up on the same tile"

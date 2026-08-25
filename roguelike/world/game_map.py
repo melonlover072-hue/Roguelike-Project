@@ -112,19 +112,32 @@ class GameMap:
         return bool(self.tiles[x, y]["walkable"])
 
     def get_random_floor_tile(self) -> tuple[int, int]:
-        """Return a random walkable floor tile (prefer room centers)."""
+        """Return a random walkable floor tile within a random room.
+
+        Picks a genuinely random tile inside the room's bounds (not just the
+        room's center) -- returning only room centers would cap the number
+        of distinct spawn positions at the number of rooms, which causes
+        infinite retry loops in any caller that rerolls on collision (e.g.
+        Engine.spawn_enemy) the moment more entities need placing than there
+        are rooms.
+        """
         if self.rooms:
-            # Pick a random room and use its center
             room = self.rooms[np.random.randint(len(self.rooms))]
             x, y, w, h = room
-            return (x + w // 2, y + h // 2)
-        
-        # Fallback: find any walkable tile
+            rx = int(np.random.randint(x, x + w))
+            ry = int(np.random.randint(y, y + h))
+            if self.is_walkable(rx, ry):
+                return (rx, ry)
+            # Rare: room bounds included a non-walkable tile (e.g. an odd
+            # shape). Fall through to the full-map fallback below instead
+            # of ever returning a fixed, non-random coordinate.
+
+        # Fallback: any walkable tile on the map, fully random.
         floor_tiles = np.argwhere(self.tiles["walkable"])
         if len(floor_tiles) == 0:
             return (self.width // 2, self.height // 2)
-        
+
         idx = np.random.randint(len(floor_tiles))
         x, y = floor_tiles[idx]
-        return (min(max(int(x), 0), self.width - 1), 
+        return (min(max(int(x), 0), self.width - 1),
                 min(max(int(y), 0), self.height - 1))

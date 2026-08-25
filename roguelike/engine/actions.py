@@ -56,5 +56,9 @@ class MovementAction(Action):
         # Check for items to pick up.
         for item in engine.items_on_ground[:]:
             if item.x == dest_x and item.y == dest_y:
-                item.pick_up(engine)
-                engine.items_on_ground.remove(item)
+                if item.pick_up(engine):
+                    engine.items_on_ground.remove(item)
+                # If pick_up() returned False (e.g. backpack full), leave the
+                # item sitting on the ground -- it already sent its own
+                # message explaining why, and removing it here would destroy
+                # it permanently for no in-game reason.

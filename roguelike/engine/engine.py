@@ -31,19 +31,6 @@ class Engine:
         self.items_on_ground: List[Item] = []
         self.equipment: Dict[str, Equipment] = {}
         self.max_inventory_size = 20
-    def spawn_enemy(self, enemy_factory) -> Entity:
-        """Create an enemy and place it on a random floor tile."""
-
-        x, y = self.game_map.get_random_floor_tile()
-
-        # Make sure we don't spawn on an existing entity.
-        while any(entity.x == x and entity.y == y for entity in self.entities):
-            x, y = self.game_map.get_random_floor_tile()
-
-        enemy = enemy_factory(x, y)
-        self.entities.append(enemy)
-
-        return enemy
 
     def handle_events(self) -> None:
         for event in tcod.event.wait():
@@ -78,16 +65,17 @@ class Engine:
     def spawn_enemy(self, enemy_factory) -> Entity:
         """Create an enemy and place it on a random floor tile."""
 
-        while True:
+        for _ in range(100):  # Safety cap -- never hang the game over a spawn.
             x, y = self.game_map.get_random_floor_tile()
 
-            if any(
-                entity.x == x and entity.y == y
-                for entity in self.entities
-        ):
+            if any(entity.x == x and entity.y == y for entity in self.entities):
                 continue
 
             enemy = enemy_factory(x, y)
             self.entities.append(enemy)
-
             return enemy
+
+        raise RuntimeError(
+            "spawn_enemy: couldn't find a free tile after 100 attempts -- "
+            "map may be too small or too crowded for the number of entities requested."
+        )
