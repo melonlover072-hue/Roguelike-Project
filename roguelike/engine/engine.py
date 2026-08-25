@@ -31,7 +31,20 @@ class Engine:
         self.items_on_ground: List[Item] = []
         self.equipment: Dict[str, Equipment] = {}
         self.max_inventory_size = 20
-    
+    def spawn_enemy(self, enemy_factory) -> Entity:
+        """Create an enemy and place it on a random floor tile."""
+
+        x, y = self.game_map.get_random_floor_tile()
+
+        # Make sure we don't spawn on an existing entity.
+        while any(entity.x == x and entity.y == y for entity in self.entities):
+            x, y = self.game_map.get_random_floor_tile()
+
+        enemy = enemy_factory(x, y)
+        self.entities.append(enemy)
+
+        return enemy
+
     def handle_events(self) -> None:
         for event in tcod.event.wait():
             action = input_handlers.handle_event(event)
@@ -62,25 +75,16 @@ class Engine:
         if len(self.messages) > 100:
             self.messages.pop(0)
 
-    def spawn_enemy(self, enemy_factory, min_distance: int = 5) -> Entity:
-        """Create an enemy and place it on a valid floor tile."""
+    def spawn_enemy(self, enemy_factory) -> Entity:
+        """Create an enemy and place it on a random floor tile."""
+
         while True:
-            x = self.rng.integers(0, self.game_map.width)
-            y = self.rng.integers(0, self.game_map.height)
+            x, y = self.game_map.get_random_floor_tile()
 
-            if not self.game_map.walkable[x, y]:
-                continue
-
-            if any(entity.x == x and entity.y == y
-                    for entity in self.entities):
-                continue
-
-            distance = max(
-                abs(x - self.player.x),
-                abs(y - self.player.y),
-            )
-
-            if distance < min_distance:
+            if any(
+                entity.x == x and entity.y == y
+                for entity in self.entities
+        ):
                 continue
 
             enemy = enemy_factory(x, y)

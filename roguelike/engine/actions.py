@@ -36,14 +36,25 @@ class MovementAction(Action):
         dest_x = engine.player.x + self.dx
         dest_y = engine.player.y + self.dy
 
+        # Blocked by a wall or map edge.
         if not engine.game_map.is_walkable(dest_x, dest_y):
-            return  # Blocked by a wall or map edge
+            return
+
+        # Blocked by another entity.
+        for entity in engine.entities:
+            if (
+                entity is not engine.player
+                and entity.blocks_movement
+                and entity.x == dest_x
+                and entity.y == dest_y
+            ):
+                return
 
         engine.player.move(self.dx, self.dy)
         engine.update_fov()
-        
-        # Check for items to pick up
-        for item in engine.items_on_ground[:]:  # Copy list to safely modify
+
+        # Check for items to pick up.
+        for item in engine.items_on_ground[:]:
             if item.x == dest_x and item.y == dest_y:
                 item.pick_up(engine)
                 engine.items_on_ground.remove(item)
