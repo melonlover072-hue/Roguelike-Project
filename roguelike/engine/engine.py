@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import List, Dict
 
+import numpy as np
 import tcod
 
 from roguelike.engine import input_handlers
@@ -21,6 +22,9 @@ class Engine:
         self.game_map = game_map
         self.entities: List[Entity] = [player]
         self.messages: List[str] = ["Welcome, adventurer."]
+        
+        # Initialize RNG
+        self.rng = np.random.default_rng()
         
         # Inventory and equipment
         self.inventory: List[Item] = []
@@ -55,21 +59,31 @@ class Engine:
     def add_message(self, message: str) -> None:
         """Add a message to the log."""
         self.messages.append(message)
-        # Optional: Keep log from growing too large
         if len(self.messages) > 100:
             self.messages.pop(0)
-            from roguelike.entities.entity import Entity
-from roguelike.entities.enemies import (
-    create_rat,
-    create_wolf,
-    create_skeleton,
-    create_goblin,
-)
 
+    def spawn_enemy(self, enemy_factory, min_distance: int = 5) -> Entity:
+        """Create an enemy and place it on a valid floor tile."""
+        while True:
+            x = self.rng.integers(0, self.game_map.width)
+            y = self.rng.integers(0, self.game_map.height)
 
-    def spawn_enemy(
-    enemy_factory,
-    x: int,
-    y: int,
-) -> Entity:
-    return enemy_factory(x, y)
+            if not self.game_map.walkable[x, y]:
+                continue
+
+            if any(entity.x == x and entity.y == y
+                    for entity in self.entities):
+                continue
+
+            distance = max(
+                abs(x - self.player.x),
+                abs(y - self.player.y),
+            )
+
+            if distance < min_distance:
+                continue
+
+            enemy = enemy_factory(x, y)
+            self.entities.append(enemy)
+
+            return enemy

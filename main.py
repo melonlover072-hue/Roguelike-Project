@@ -12,6 +12,7 @@ from roguelike.world.item_spawner import spawn_items
 from roguelike.engine.engine import Engine
 from roguelike.entities.entity import Entity
 from roguelike.entities.fighter import Fighter
+from roguelike.entities.enemies import create_rat, create_wolf, create_skeleton, create_goblin
 from roguelike.ui import layout
 from roguelike.world.game_map import GameMap
 
@@ -49,6 +50,19 @@ def load_tileset() -> "tcod.tileset.Tileset | None":
     )
     return None
 
+def spawn_enemies(engine):
+    for _ in range(5):
+        engine.spawn_enemy(create_rat)
+
+    for _ in range(2):
+        engine.spawn_enemy(create_wolf)
+
+    engine.spawn_enemy(create_skeleton)
+
+    for _ in range(2):
+        engine.spawn_enemy(create_goblin)
+    
+
 
 def main() -> None:
     game_map = GameMap(layout.MAP_WIDTH, layout.MAP_HEIGHT)
@@ -69,7 +83,10 @@ def main() -> None:
     )
 
     engine = Engine(player=player, game_map=game_map)
-    engine.items_on_ground = items_on_ground  # Add spawned items
+    engine.items_on_ground = items_on_ground
+    
+    # Spawn enemies
+    spawn_enemies(engine)
     
     # Initial FOV calculation
     engine.update_fov()
