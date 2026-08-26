@@ -9,7 +9,7 @@ from roguelike.engine.actions import (
 )
 from roguelike.engine.engine import Engine
 from roguelike.entities.entity import Entity
-from roguelike.entities.enemies import create_rat
+from roguelike.entities.enemies import create_rat, create_wolf
 from roguelike.entities.fighter import Fighter
 from roguelike.entities.item import Potion
 from roguelike.world import tile_types
@@ -27,7 +27,14 @@ def make_engine():
     game_map.up_stairs = None
     game_map.down_stairs = None
 
-    player = Entity(x=5, y=5, char="@", color=(255, 255, 255), name="Player")
+    player = Entity(
+        x=5,
+        y=5,
+        char="@",
+        color=(255, 255, 255),
+        name="Player",
+        fighter=Fighter(hp=30, defense=2, power=5),
+    )
     return Engine(player=player, game_map=game_map), game_map
 
 
@@ -151,7 +158,6 @@ def test_entity_without_fighter_has_none():
 
 def test_potion_heals_player_through_fighter_component():
     engine, _ = make_engine()
-    engine.player.fighter = Fighter(hp=30, defense=2, power=5)
     engine.player.fighter.take_damage(15)
 
     potion = Potion(healing_amount=10)
@@ -163,7 +169,6 @@ def test_potion_heals_player_through_fighter_component():
 
 def test_potion_at_full_health_does_not_overheal_or_crash():
     engine, _ = make_engine()
-    engine.player.fighter = Fighter(hp=30, defense=2, power=5)
 
     potion = Potion(healing_amount=10)
     potion.apply_effect(engine)
@@ -213,9 +218,9 @@ def test_spawn_enemy_never_overlaps_an_existing_entity():
 def test_bump_attack_deals_damage():
     engine, _ = make_engine()
     engine.player.x, engine.player.y = 5, 5
-    engine.player.fighter = Fighter(hp=30, defense=2, power=5)
 
-    enemy = create_rat(x=6, y=5)
+    # Wolf has 10 HP / defense 1; player power 5 deals 4 damage, survives
+    enemy = create_wolf(x=6, y=5)
     engine.entities.append(enemy)
     start_hp = enemy.fighter.hp
 
@@ -223,13 +228,12 @@ def test_bump_attack_deals_damage():
 
     assert enemy.fighter.hp < start_hp
     assert engine.player.x == 5  # Did not move onto enemy tile
-    assert "attacks Rat" in engine.messages[-2]
+    assert "attacks Wolf" in engine.messages[-2]
 
 
 def test_bump_attack_kills_enemy():
     engine, _ = make_engine()
     engine.player.x, engine.player.y = 5, 5
-    engine.player.fighter = Fighter(hp=30, defense=2, power=5)
 
     enemy = create_rat(x=6, y=5)
     engine.entities.append(enemy)
@@ -269,7 +273,6 @@ def test_enemy_ai_moves_toward_player():
 def test_enemy_ai_attacks_when_adjacent():
     engine, _ = make_engine()
     engine.player.x, engine.player.y = 5, 5
-    engine.player.fighter = Fighter(hp=30, defense=2, power=5)
 
     enemy = create_rat(x=6, y=5)
     engine.entities.append(enemy)
@@ -283,7 +286,6 @@ def test_enemy_ai_attacks_when_adjacent():
 
 def test_inventory_use_consumes_potion():
     engine, _ = make_engine()
-    engine.player.fighter = Fighter(hp=30, defense=2, power=5)
     engine.player.fighter.take_damage(15)  # 15/30
 
     potion = Potion(healing_amount=10)
