@@ -46,7 +46,14 @@ class Engine:
                     and self.player.fighter
                     and self.player.fighter.is_alive
                 ):
+                    self._tick_status_effects()
                     self.handle_enemy_turns()
+
+    def _tick_status_effects(self) -> None:
+        """Tick poison, regen, etc. on all living fighters."""
+        for entity in self.entities:
+            if entity.fighter and entity.fighter.is_alive:
+                entity.fighter.tick_status_effects(self)
 
     def handle_enemy_turns(self) -> None:
         for entity in self.entities[:]:
@@ -111,7 +118,6 @@ class Engine:
     # --- Depth system ---
 
     def descend(self) -> None:
-        """Go down to the next depth level."""
         if (self.player.x, self.player.y) != self.game_map.down_stairs:
             self.add_message("There are no down stairs here.")
             return
@@ -130,7 +136,6 @@ class Engine:
         self.add_message(f"You descend to depth {self.depth}.")
 
     def ascend(self) -> None:
-        """Go up to the previous depth level."""
         if (self.player.x, self.player.y) != self.game_map.up_stairs:
             self.add_message("There are no up stairs here.")
             return
@@ -149,7 +154,6 @@ class Engine:
         self.add_message(f"You ascend to depth {self.depth}.")
 
     def _save_current_level(self) -> None:
-        """Cache the current level state before switching away."""
         level_entities = [e for e in self.entities if e is not self.player]
         self.dungeon_levels[self.depth] = (
             self.game_map,
@@ -158,12 +162,10 @@ class Engine:
         )
 
     def _load_level(self, depth: int) -> None:
-        """Restore a previously visited level from cache."""
         self.game_map, level_entities, self.items_on_ground = self.dungeon_levels[depth]
         self.entities = [self.player] + level_entities
 
     def _generate_new_level(self, depth: int) -> None:
-        """Generate a brand new dungeon level."""
         from roguelike.world.level_generator import populate_level
 
         self.game_map = GameMap(layout.MAP_WIDTH, layout.MAP_HEIGHT, depth=depth)

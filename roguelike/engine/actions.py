@@ -58,6 +58,18 @@ class MovementAction(Action):
         if not engine.game_map.is_walkable(dest_x, dest_y):
             return
 
+        # Check for disguised mimic on destination tile
+        for entity in engine.entities:
+            if getattr(entity, "disguised", False) and entity.x == dest_x and entity.y == dest_y:
+                entity.disguised = False
+                entity.name = entity.real_name
+                entity.char = "m"
+                entity.blocks_movement = True
+                entity.color = (180, 140, 100)
+                engine.add_message(f"The {entity.disguised_name} was a mimic!")
+                perform_attack(engine.player, entity, engine)
+                return
+
         # Check for a living enemy to bump-attack
         target = None
         for entity in engine.entities:
@@ -149,19 +161,41 @@ def perform_attack(attacker: "Entity", target: "Entity", engine: "Engine") -> No
 
     engine.add_message(f"{attacker.name} attacks {target.name} for {damage} damage!")
 
-    if not target.fighter.is_alive:
-        engine.add_message(f"{target.name} dies!")
-        target.char = "%"
-        target.color = (139, 0, 0)
-        target.blocks_movement = False
-        target.name = f"remains of {target.name}"
-        target.fighter = None
-        target.ai = None
+    # On-hit status effects (e.g. poison)
+    if target.fighter and target.fighter.is_alive and attacker.fighter.on_hit_status:
+        for status_name, chance, duration in attacker.fighter.on_hit_status:
+            if engine.rng.random() < chance:
+                if status_name == "poison":
+                    from roguelike.entities.status_effects import Poison
+                    target.fighter.add_status_effect(Poison(damage_per_turn=2, duration=duration))
+                    engine.add_message(f"{target.name} is poisoned!")
 
-        # Drop loot
-        if hasattr(target, "loot") and target.loot:
-            for item in target.loot:
-                item.x = target.x
-                item.y = target.y
+    if not target.fighter.is_alive:
+        _handle_death(target, engine)
+
+
+def _handle_death(entity: "Entity", engine: "Engine") -> None:
+    """Handle an entity dying — messages, corpse conversion, loot drops."""
+    engine.add_message(f"{entity.name} dies!")
+    entity.char = "%"
+    entity.color = (139, 0, 0)
+    entity.blocks_movement = False
+    entity.name = f"remains of {entity.name}"
+    entity.fighter = None
+    entity.ai = None
+
+    # Drop pre-built loot (e.g. goblin weapons)
+    if hasattr(entity, "loot") and entity.loot:
+        for item in entity.loot:
+            item.x = entity.x
+            item.y = entity.y
+            engine.items_on_ground.append(item)
+        engine.add_message(f"The {entity.name} drops something!")
+
+    # Roll loot table
+    if hasattr(entity, "loot_table") and entity.loot_table:
+        for factory, chance in entity.loot_table:
+            if engine.rng.random() < chance:
+                item = factory(x=entity.x, y=entity.y)
                 engine.items_on_ground.append(item)
-            engine.add_message(f"The {target.name} drops something!")
+                engine.add_message(f"The {entity.name} drops a {item.name}!")

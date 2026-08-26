@@ -1,4 +1,4 @@
-"""Phase 0/1/2 smoke tests."""
+"""Phase 0/1/2/3 smoke tests."""
 import numpy as np
 
 from roguelike.engine.actions import (
@@ -8,10 +8,16 @@ from roguelike.engine.actions import (
     perform_attack,
 )
 from roguelike.engine.engine import Engine
+from roguelike.entities.ai import BasicMonster, CowardlyAI, SlowAI, MimicAI
 from roguelike.entities.entity import Entity
-from roguelike.entities.enemies import create_rat, create_wolf, create_goblin
+from roguelike.entities.enemies import (
+    create_rat, create_wolf, create_goblin,
+    create_kobold, create_zombie, create_mimic, create_giant_spider,
+    create_orc, create_dark_knight, create_dragon, create_rat_king,
+)
 from roguelike.entities.fighter import Fighter
 from roguelike.entities.item import Potion, create_dagger, create_sword, create_axe
+from roguelike.entities.status_effects import Poison
 from roguelike.world import tile_types
 from roguelike.world.game_map import GameMap
 
@@ -37,6 +43,8 @@ def make_engine():
     )
     return Engine(player=player, game_map=game_map), game_map
 
+
+# --- Phase 0: Map tests ---
 
 def test_game_map_in_bounds():
     game_map = GameMap(30, 20)
@@ -87,6 +95,8 @@ def test_map_edges_are_walls():
     assert not game_map.is_walkable(29, 19)
 
 
+# --- Phase 1: Movement tests ---
+
 def test_movement_action_moves_player_into_open_floor():
     engine, _ = make_engine()
     start_x, start_y = engine.player.x, engine.player.y
@@ -113,6 +123,8 @@ def test_movement_action_blocked_by_map_edge_does_not_crash():
     assert engine.player.x == 0
     assert engine.player.y == 0
 
+
+# --- Phase 1: Fighter tests ---
 
 def test_fighter_take_damage_reduces_hp():
     fighter = Fighter(hp=30, defense=2, power=5)
@@ -156,6 +168,8 @@ def test_entity_without_fighter_has_none():
     assert entity.fighter is None
 
 
+# --- Phase 1: Item tests ---
+
 def test_potion_heals_player_through_fighter_component():
     engine, _ = make_engine()
     engine.player.fighter.take_damage(15)
@@ -178,7 +192,6 @@ def test_potion_at_full_health_does_not_overheal_or_crash():
 
 
 def test_pickup_action_with_full_inventory_does_not_destroy_item():
-    """Manual pickup must not destroy items when inventory is full."""
     engine, _ = make_engine()
     engine.player.x, engine.player.y = 5, 5
 
@@ -191,6 +204,20 @@ def test_pickup_action_with_full_inventory_does_not_destroy_item():
     assert len(engine.inventory) == engine.max_inventory_size
     assert stuck_potion in engine.items_on_ground
 
+
+def test_pickup_action_adds_to_inventory():
+    engine, _ = make_engine()
+    engine.player.x, engine.player.y = 5, 5
+    potion = Potion(x=5, y=5)
+    engine.items_on_ground.append(potion)
+
+    PickupAction().perform(engine)
+
+    assert potion in engine.inventory
+    assert potion not in engine.items_on_ground
+
+
+# --- Phase 1: Spawn tests ---
 
 def test_spawn_enemy_adds_a_fighter_entity_to_engine():
     engine, _ = make_engine()
@@ -219,7 +246,6 @@ def test_bump_attack_deals_damage():
     engine, _ = make_engine()
     engine.player.x, engine.player.y = 5, 5
 
-    # Wolf has 10 HP / defense 1; player power 5 deals 4 damage, survives
     enemy = create_wolf(x=6, y=5)
     engine.entities.append(enemy)
     start_hp = enemy.fighter.hp
@@ -227,7 +253,7 @@ def test_bump_attack_deals_damage():
     MovementAction(dx=1, dy=0).perform(engine)
 
     assert enemy.fighter.hp < start_hp
-    assert engine.player.x == 5  # Did not move onto enemy tile
+    assert engine.player.x == 5
     assert "attacks Wolf" in engine.messages[-1]
 
 
@@ -237,25 +263,12 @@ def test_bump_attack_kills_enemy():
 
     enemy = create_rat(x=6, y=5)
     engine.entities.append(enemy)
-    # Rat has 5 HP, player deals max(5-0,1)=5 -- rat dies in one hit
 
     MovementAction(dx=1, dy=0).perform(engine)
 
     assert enemy.fighter is None
     assert enemy.char == "%"
     assert "dies" in engine.messages[-1]
-
-
-def test_pickup_action_adds_to_inventory():
-    engine, _ = make_engine()
-    engine.player.x, engine.player.y = 5, 5
-    potion = Potion(x=5, y=5)
-    engine.items_on_ground.append(potion)
-
-    PickupAction().perform(engine)
-
-    assert potion in engine.inventory
-    assert potion not in engine.items_on_ground
 
 
 def test_enemy_ai_moves_toward_player():
@@ -286,7 +299,7 @@ def test_enemy_ai_attacks_when_adjacent():
 
 def test_inventory_use_consumes_potion():
     engine, _ = make_engine()
-    engine.player.fighter.take_damage(15)  # 15/30
+    engine.player.fighter.take_damage(15)
 
     potion = Potion(healing_amount=10)
     engine.inventory.append(potion)
@@ -298,7 +311,7 @@ def test_inventory_use_consumes_potion():
     assert engine.game_state == "playing"
 
 
-# --- Phase 3: Depth & Equipment tests ---
+# --- Phase 3: Depth tests ---
 
 def test_descend_increases_depth():
     engine, _ = make_engine()
@@ -326,15 +339,15 @@ def test_ascend_restores_previous_level():
     engine.game_map.down_stairs = (5, 5)
     engine.player.x, engine.player.y = 5, 5
 
-    # Descend to depth 2
     engine.descend()
     assert engine.depth == 2
 
-    # Place player on up stairs of depth 2 and ascend
     engine.player.x, engine.player.y = engine.game_map.up_stairs
     engine.ascend()
     assert engine.depth == 1
 
+
+# --- Phase 3: Equipment tests ---
 
 def test_equipped_goblin_has_higher_power():
     naked = create_goblin(0, 0)
@@ -345,7 +358,6 @@ def test_equipped_goblin_has_higher_power():
 def test_killing_equipped_goblin_drops_weapon():
     engine, _ = make_engine()
     engine.player.x, engine.player.y = 5, 5
-    # Boost power to one-shot: goblin has 7 HP, defense 1, need power >= 8
     engine.player.fighter.power = 8
 
     enemy = create_goblin(6, 5, weapon="dagger")
@@ -353,7 +365,7 @@ def test_killing_equipped_goblin_drops_weapon():
 
     MovementAction(dx=1, dy=0).perform(engine)
 
-    assert enemy.fighter is None  # Dead
+    assert enemy.fighter is None
     dropped = [i for i in engine.items_on_ground if i.name == "Dagger"]
     assert len(dropped) == 1
 
@@ -381,3 +393,127 @@ def test_unequipping_weapon_restores_player_power():
 
     axe.unequip(engine)
     assert engine.player.fighter.power == base_power
+
+
+# --- Phase 4: Status effects ---
+
+def test_poison_ticks_and_deals_damage():
+    engine, _ = make_engine()
+    engine.player.fighter.take_damage(0)  # Ensure fighter exists
+    start_hp = engine.player.fighter.hp
+
+    engine.player.fighter.add_status_effect(Poison(damage_per_turn=2, duration=3))
+    engine._tick_status_effects()
+
+    assert engine.player.fighter.hp == start_hp - 2
+    assert "poison" in engine.messages[-1].lower()
+
+
+def test_poison_kills_entity():
+    engine, _ = make_engine()
+    enemy = create_rat(x=5, y=5)
+    engine.entities.append(enemy)
+    enemy.fighter.hp = 2  # Set low HP
+
+    enemy.fighter.add_status_effect(Poison(damage_per_turn=5, duration=1))
+    engine._tick_status_effects()
+
+    assert enemy.fighter is None  # Died and was cleaned up
+    assert enemy.char == "%"
+
+
+def test_giant_spider_applies_poison_on_hit():
+    engine, _ = make_engine()
+    engine.player.x, engine.player.y = 5, 5
+
+    spider = create_giant_spider(x=6, y=5)
+    engine.entities.append(spider)
+    # Force poison to always proc
+    engine.rng = type("Rng", (), {"random": lambda self: 0.0})()
+
+    MovementAction(dx=1, dy=0).perform(engine)
+
+    assert len(engine.player.fighter.status_effects) > 0
+    assert any(e.name == "poison" for e in engine.player.fighter.status_effects)
+
+
+# --- Phase 4: Loot tables ---
+
+def test_enemy_loot_table_drop():
+    engine, _ = make_engine()
+    engine.player.x, engine.player.y = 5, 5
+    engine.player.fighter.power = 30  # One-shot anything
+
+    enemy = create_rat_king(x=6, y=5)
+    engine.entities.append(enemy)
+
+    MovementAction(dx=1, dy=0).perform(engine)
+
+    assert enemy.fighter is None
+    # Rat King has 100% Potion drop
+    dropped_potions = [i for i in engine.items_on_ground if isinstance(i, Potion)]
+    assert len(dropped_potions) >= 1
+
+
+# --- Phase 4: New AI behaviors ---
+
+def test_cowardly_ai_flees_when_hurt():
+    engine, _ = make_engine()
+    engine.player.x, engine.player.y = 5, 5
+
+    kobold = create_kobold(x=4, y=5)
+    engine.entities.append(kobold)
+    kobold.fighter.hp = 1  # Hurt (max_hp=6, so <= 3 would flee)
+    start_x = kobold.x
+
+    kobold.ai.take_turn(kobold, engine)
+
+    assert kobold.x != start_x  # Should have fled away from player at (5,5)
+
+
+def test_slow_ai_acts_every_other_turn():
+    engine, _ = make_engine()
+    engine.player.x, engine.player.y = 5, 5
+
+    zombie = create_zombie(x=2, y=2)
+    engine.entities.append(zombie)
+    start_pos = (zombie.x, zombie.y)
+
+    zombie.ai.take_turn(zombie, engine)  # turn_count = 1, should not act
+    assert (zombie.x, zombie.y) == start_pos
+
+    zombie.ai.take_turn(zombie, engine)  # turn_count = 2, should act
+    assert (zombie.x, zombie.y) != start_pos
+
+
+def test_mimic_reveals_when_bumped():
+    engine, _ = make_engine()
+    engine.player.x, engine.player.y = 5, 5
+
+    mimic = create_mimic(x=6, y=5)
+    engine.entities.append(mimic)
+    assert getattr(mimic, "disguised", False)
+    assert mimic.blocks_movement is False
+
+    MovementAction(dx=1, dy=0).perform(engine)
+
+    assert not getattr(mimic, "disguised", False)
+    assert mimic.name == "Mimic"
+    assert mimic.blocks_movement is True
+    assert "mimic" in engine.messages[-2].lower()
+
+
+# --- Phase 4: New enemy sanity checks ---
+
+def test_new_enemies_have_fighters():
+    enemies = [
+        create_bat(0, 0),
+        create_kobold(0, 0),
+        create_orc(0, 0),
+        create_dark_knight(0, 0),
+        create_dragon(0, 0),
+    ]
+    for e in enemies:
+        assert e.fighter is not None
+        assert e.fighter.is_alive
+        assert e.ai is not None

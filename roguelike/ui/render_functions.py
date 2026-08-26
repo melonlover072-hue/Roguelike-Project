@@ -39,24 +39,19 @@ def render_map(console: tcod.console.Console, game_map: "GameMap") -> None:
 
 
 def render_stairs(console: tcod.console.Console, game_map: "GameMap") -> None:
-    """Render up and down stairs if visible."""
     if game_map.up_stairs:
         ux, uy = game_map.up_stairs
         if game_map.tiles[ux, uy]["visible"]:
             console.print(
-                x=layout.MAP_X + ux,
-                y=layout.MAP_Y + uy,
-                string="<",
-                fg=(200, 200, 200),
+                x=layout.MAP_X + ux, y=layout.MAP_Y + uy,
+                string="<", fg=(200, 200, 200),
             )
     if game_map.down_stairs:
         dx, dy = game_map.down_stairs
         if game_map.tiles[dx, dy]["visible"]:
             console.print(
-                x=layout.MAP_X + dx,
-                y=layout.MAP_Y + dy,
-                string=">",
-                fg=(200, 200, 200),
+                x=layout.MAP_X + dx, y=layout.MAP_Y + dy,
+                string=">", fg=(200, 200, 200),
             )
 
 
@@ -66,13 +61,20 @@ def render_entities(
     game_map: "GameMap",
 ) -> None:
     for entity in entities:
-        if game_map.tiles[entity.x, entity.y]["visible"]:
-            console.print(
-                x=layout.MAP_X + entity.x,
-                y=layout.MAP_Y + entity.y,
-                string=entity.char,
-                fg=entity.color,
-            )
+        if not game_map.tiles[entity.x, entity.y]["visible"]:
+            continue
+        char = entity.char
+        color = entity.color
+        # Disguised mimics render as their fake appearance
+        if getattr(entity, "disguised", False):
+            char = getattr(entity, "disguised_char", entity.char)
+            color = getattr(entity, "disguised_color", entity.color)
+        console.print(
+            x=layout.MAP_X + entity.x,
+            y=layout.MAP_Y + entity.y,
+            string=char,
+            fg=color,
+        )
 
 
 def render_sidebar(

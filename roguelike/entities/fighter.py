@@ -1,46 +1,56 @@
-"""Combat stats as a component, not inheritance.
-
-A Fighter is attached to an Entity (`entity.fighter = Fighter(...)`) rather
-than Entity itself growing hp/attack/defense fields directly. This is what
-lets the exact same class serve the player and every monster in Phase 2 --
-an Entity with no Fighter is just scenery/an item, an Entity with one can
-fight.
-"""
+"""Combat stats as a component, not inheritance."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, List, Tuple
 
 if TYPE_CHECKING:
     from roguelike.entities.entity import Entity
+    from roguelike.entities.status_effects import StatusEffect
 
 
 class Fighter:
-    def __init__(self, hp: int, defense: int, power: int):
+    def __init__(
+        self,
+        hp: int,
+        defense: int,
+        power: int,
+        on_hit_status: List[Tuple[str, float, int]] | None = None,
+    ):
         self.max_hp = hp
         self.hp = hp
         self.defense = defense
         self.power = power
+        self.on_hit_status = on_hit_status or []  # [(status_name, chance, duration)]
 
-        # Set by Entity.__init__ when this Fighter is attached -- lets combat
-        # code go from "this Fighter took damage" back to "this Entity died"
-        # (for messages, removing corpses from the map, etc.) without every
-        # caller having to pass the owning entity around separately.
         self.entity: Optional["Entity"] = None
+        self.status_effects: List["StatusEffect"] = []
 
     @property
     def is_alive(self) -> bool:
         return self.hp > 0
 
     def heal(self, amount: int) -> int:
-        """Heal up to `amount`, clamped at max_hp. Returns the amount actually healed."""
         new_hp = min(self.hp + amount, self.max_hp)
         healed = new_hp - self.hp
         self.hp = new_hp
         return healed
 
     def take_damage(self, amount: int) -> int:
-        """Apply damage, clamped at 0. Returns the amount actually taken."""
         new_hp = max(self.hp - amount, 0)
         taken = self.hp - new_hp
         self.hp = new_hp
         return taken
+
+    def add_status_effect(self, effect: "StatusEffect") -> None:
+        self.status_effects.append(effect)
+
+    def tick_status_effects(self, engine: "Engine") -> None:
+        """Tick all active status effects. If one kills the entity, handle death immediately."""
+        for effect in self.status_effects[:]:
+            effect.tick(self.entity, engine)
+            if self.entity and self.entity.fighter and not self.entity.fighter.is_alive:
+                from roguelike.engine.actions import _handle_death
+                _handle_death(self.entity, engine)
+                return
+            if effect.duration <= 0:
+                self.status_effects.remove(effect)
