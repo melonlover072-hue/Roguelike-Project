@@ -36,6 +36,16 @@ class PickupAction(Action):
         engine.add_message("There is nothing here to pick up.")
 
 
+class DescendAction(Action):
+    def perform(self, engine: "Engine") -> None:
+        engine.descend()
+
+
+class AscendAction(Action):
+    def perform(self, engine: "Engine") -> None:
+        engine.ascend()
+
+
 class MovementAction(Action):
     def __init__(self, dx: int, dy: int):
         self.dx = dx
@@ -147,3 +157,11 @@ def perform_attack(attacker: "Entity", target: "Entity", engine: "Engine") -> No
         target.name = f"remains of {target.name}"
         target.fighter = None
         target.ai = None
+
+        # Drop loot
+        if hasattr(target, "loot") and target.loot:
+            for item in target.loot:
+                item.x = target.x
+                item.y = target.y
+                engine.items_on_ground.append(item)
+            engine.add_message(f"The {target.name} drops something!")

@@ -1,7 +1,7 @@
 """The Engine owns game state and the main loop."""
 from __future__ import annotations
 
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 import numpy as np
 import tcod
@@ -18,6 +18,9 @@ class Engine:
     def __init__(self, player: Entity, game_map: GameMap):
         self.player = player
         self.game_map = game_map
+        self.depth = getattr(game_map, "depth", 1)
+        self.dungeon_levels: Dict[int, Tuple[GameMap, List[Entity], List[Item]]] = {}
+
         self.entities: List[Entity] = [player]
         self.messages: List[str] = ["Welcome, adventurer."]
         self.game_state = "playing"
@@ -54,9 +57,12 @@ class Engine:
 
     def render(self, console: tcod.console.Console) -> None:
         render_functions.render_map(console, self.game_map)
+        render_functions.render_stairs(console, self.game_map)
         render_functions.render_items(console, self.items_on_ground, self.game_map)
         render_functions.render_entities(console, self.entities, self.game_map)
-        render_functions.render_sidebar(console, self.player, self.inventory, self.equipment)
+        render_functions.render_sidebar(
+            console, self.player, self.inventory, self.equipment, self.depth
+        )
         render_functions.render_log(console, self.messages)
 
         if self.game_state == "inventory_use":
@@ -101,3 +107,66 @@ class Engine:
             "spawn_enemy: couldn't find a free tile after 100 attempts -- "
             "map may be too small or too crowded for the number of entities requested."
         )
+
+    # --- Depth system ---
+
+    def descend(self) -> None:
+        """Go down to the next depth level."""
+        if (self.player.x, self.player.y) != self.game_map.down_stairs:
+            self.add_message("There are no down stairs here.")
+            return
+
+        self._save_current_level()
+        next_depth = self.depth + 1
+
+        if next_depth in self.dungeon_levels:
+            self._load_level(next_depth)
+        else:
+            self._generate_new_level(next_depth)
+
+        self.depth = next_depth
+        self.player.x, self.player.y = self.game_map.up_stairs
+        self.update_fov()
+        self.add_message(f"You descend to depth {self.depth}.")
+
+    def ascend(self) -> None:
+        """Go up to the previous depth level."""
+        if (self.player.x, self.player.y) != self.game_map.up_stairs:
+            self.add_message("There are no up stairs here.")
+            return
+
+        if self.depth <= 1:
+            self.add_message("You can't leave the dungeon that easily.")
+            return
+
+        self._save_current_level()
+        prev_depth = self.depth - 1
+        self._load_level(prev_depth)
+
+        self.depth = prev_depth
+        self.player.x, self.player.y = self.game_map.down_stairs
+        self.update_fov()
+        self.add_message(f"You ascend to depth {self.depth}.")
+
+    def _save_current_level(self) -> None:
+        """Cache the current level state before switching away."""
+        level_entities = [e for e in self.entities if e is not self.player]
+        self.dungeon_levels[self.depth] = (
+            self.game_map,
+            level_entities,
+            self.items_on_ground,
+        )
+
+    def _load_level(self, depth: int) -> None:
+        """Restore a previously visited level from cache."""
+        self.game_map, level_entities, self.items_on_ground = self.dungeon_levels[depth]
+        self.entities = [self.player] + level_entities
+
+    def _generate_new_level(self, depth: int) -> None:
+        """Generate a brand new dungeon level."""
+        from roguelike.world.level_generator import populate_level
+
+        self.game_map = GameMap(layout.MAP_WIDTH, layout.MAP_HEIGHT, depth=depth)
+        self.entities = [self.player]
+        self.items_on_ground = []
+        populate_level(self, depth=depth)

@@ -9,9 +9,9 @@ from roguelike.engine.actions import (
 )
 from roguelike.engine.engine import Engine
 from roguelike.entities.entity import Entity
-from roguelike.entities.enemies import create_rat, create_wolf
+from roguelike.entities.enemies import create_rat, create_wolf, create_goblin
 from roguelike.entities.fighter import Fighter
-from roguelike.entities.item import Potion
+from roguelike.entities.item import Potion, create_dagger, create_sword, create_axe
 from roguelike.world import tile_types
 from roguelike.world.game_map import GameMap
 
@@ -296,3 +296,88 @@ def test_inventory_use_consumes_potion():
     assert engine.player.fighter.hp == 25
     assert potion not in engine.inventory
     assert engine.game_state == "playing"
+
+
+# --- Phase 3: Depth & Equipment tests ---
+
+def test_descend_increases_depth():
+    engine, _ = make_engine()
+    engine.depth = 1
+    engine.game_map.down_stairs = (5, 5)
+    engine.player.x, engine.player.y = 5, 5
+    engine.descend()
+    assert engine.depth == 2
+    assert engine.game_map is not None
+
+
+def test_cannot_ascend_from_depth_1():
+    engine, _ = make_engine()
+    engine.depth = 1
+    engine.game_map.up_stairs = (5, 5)
+    engine.player.x, engine.player.y = 5, 5
+    engine.ascend()
+    assert engine.depth == 1
+    assert "can't leave" in engine.messages[-1]
+
+
+def test_ascend_restores_previous_level():
+    engine, _ = make_engine()
+    engine.depth = 1
+    engine.game_map.down_stairs = (5, 5)
+    engine.player.x, engine.player.y = 5, 5
+
+    # Descend to depth 2
+    engine.descend()
+    assert engine.depth == 2
+
+    # Place player on up stairs of depth 2 and ascend
+    engine.player.x, engine.player.y = engine.game_map.up_stairs
+    engine.ascend()
+    assert engine.depth == 1
+
+
+def test_equipped_goblin_has_higher_power():
+    naked = create_goblin(0, 0)
+    armed = create_goblin(0, 0, weapon="axe")
+    assert armed.fighter.power > naked.fighter.power
+
+
+def test_killing_equipped_goblin_drops_weapon():
+    engine, _ = make_engine()
+    engine.player.x, engine.player.y = 5, 5
+    # Boost power to one-shot: goblin has 7 HP, defense 1, need power >= 8
+    engine.player.fighter.power = 8
+
+    enemy = create_goblin(6, 5, weapon="dagger")
+    engine.entities.append(enemy)
+
+    MovementAction(dx=1, dy=0).perform(engine)
+
+    assert enemy.fighter is None  # Dead
+    dropped = [i for i in engine.items_on_ground if i.name == "Dagger"]
+    assert len(dropped) == 1
+
+
+def test_equipping_weapon_increases_player_power():
+    engine, _ = make_engine()
+    base_power = engine.player.fighter.power
+
+    sword = create_sword()
+    engine.inventory.append(sword)
+    sword.equip(engine)
+
+    assert engine.player.fighter.power == base_power + 2
+    assert "equip" in engine.messages[-1]
+
+
+def test_unequipping_weapon_restores_player_power():
+    engine, _ = make_engine()
+    base_power = engine.player.fighter.power
+
+    axe = create_axe()
+    engine.inventory.append(axe)
+    axe.equip(engine)
+    assert engine.player.fighter.power == base_power + 3
+
+    axe.unequip(engine)
+    assert engine.player.fighter.power == base_power

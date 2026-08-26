@@ -1,28 +1,19 @@
-"""Entry point. Kept thin on purpose: window/context setup only, everything
-else lives in the `roguelike` package so it can be imported and tested
-without a real display.
-"""
+"""Entry point. Kept thin on purpose: window/context setup only."""
 from __future__ import annotations
 
 from pathlib import Path
 
 import tcod
 
-from roguelike.world.item_spawner import spawn_items
 from roguelike.engine.engine import Engine
 from roguelike.entities.entity import Entity
 from roguelike.entities.fighter import Fighter
-from roguelike.entities.enemies import create_rat, create_wolf, create_skeleton, create_goblin
 from roguelike.ui import layout
 from roguelike.world.game_map import GameMap
+from roguelike.world.level_generator import populate_level
 
 TILE_SIZE = 16
 
-# Common install locations for DejaVu Sans Mono (open-source, freely
-# licensed under the Bitstream Vera Fonts license). On Linux this usually
-# comes from the `fonts-dejavu-core` package; on macOS/Windows you may need
-# to point this at any monospace TTF you have installed, or swap in a real
-# codepage-437 tileset image later (see the note below).
 FONT_CANDIDATES = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
     "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
@@ -31,15 +22,6 @@ FONT_CANDIDATES = [
 
 
 def load_tileset() -> "tcod.tileset.Tileset | None":
-    """Try to load a real monospace tileset so the window renders cleanly.
-
-    Falls back to tcod's built-in default (tileset=None) if none of the
-    candidate fonts exist -- that fallback works but looks rough and prints
-    a font-loading warning, so this is worth fixing properly per-machine
-    rather than living with the fallback long-term. Swapping in an actual
-    codepage-437 bitmap tileset image (the traditional roguelike look) is a
-    good Phase 7 polish item once the game itself is further along.
-    """
     for path in FONT_CANDIDATES:
         if Path(path).is_file():
             return tcod.tileset.load_truetype_font(path, TILE_SIZE, TILE_SIZE)
@@ -50,29 +32,13 @@ def load_tileset() -> "tcod.tileset.Tileset | None":
     )
     return None
 
-def spawn_enemies(engine):
-    for _ in range(5):
-        engine.spawn_enemy(create_rat)
-
-    for _ in range(2):
-        engine.spawn_enemy(create_wolf)
-
-    engine.spawn_enemy(create_skeleton)
-
-    for _ in range(2):
-        engine.spawn_enemy(create_goblin)
-    
-
 
 def main() -> None:
-    game_map = GameMap(layout.MAP_WIDTH, layout.MAP_HEIGHT)
-    
-    # Spawn items
-    items_on_ground = spawn_items(game_map)
-    
+    game_map = GameMap(layout.MAP_WIDTH, layout.MAP_HEIGHT, depth=1)
+
     # Get a valid starting position
     start_x, start_y = game_map.get_random_floor_tile()
-    
+
     player = Entity(
         x=start_x,
         y=start_y,
@@ -83,21 +49,18 @@ def main() -> None:
     )
 
     engine = Engine(player=player, game_map=game_map)
-    engine.items_on_ground = items_on_ground
-    
-    # Spawn enemies
-    spawn_enemies(engine)
-    
+    populate_level(engine, depth=1)
+
     # Initial FOV calculation
     engine.update_fov()
-    
+
     tileset = load_tileset()
 
     with tcod.context.new(
         columns=layout.SCREEN_WIDTH,
         rows=layout.SCREEN_HEIGHT,
         tileset=tileset,
-        title="ADOM-inspired Roguelike -- Phase 0",
+        title="ADOM-inspired Roguelike -- Phase 2",
         vsync=True,
     ) as context:
         console = tcod.console.Console(layout.SCREEN_WIDTH, layout.SCREEN_HEIGHT, order="F")

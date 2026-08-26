@@ -8,7 +8,9 @@ from tcod.event import KeySym
 
 from roguelike.engine.actions import (
     Action,
+    AscendAction,
     CancelMenuAction,
+    DescendAction,
     EscapeAction,
     InventoryDropAction,
     InventoryEquipAction,
@@ -65,7 +67,7 @@ def _handle_playing(event: tcod.event.Event) -> Optional[Action]:
         case tcod.event.Quit():
             return EscapeAction()
 
-        case tcod.event.KeyDown(sym=sym):
+        case tcod.event.KeyDown(sym=sym, mod=mod):
             if sym in MOVE_KEYS:
                 return MovementAction(*MOVE_KEYS[sym])
             if sym == KeySym.ESCAPE:
@@ -80,6 +82,10 @@ def _handle_playing(event: tcod.event.Event) -> Optional[Action]:
                 return InventoryEquipAction()
             if sym == KeySym.KP_5:
                 return WaitAction()
+            if sym == KeySym.PERIOD and mod & tcod.event.KMOD_SHIFT:
+                return DescendAction()
+            if sym == KeySym.COMMA and mod & tcod.event.KMOD_SHIFT:
+                return AscendAction()
 
     return None
 

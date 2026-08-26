@@ -38,6 +38,28 @@ def render_map(console: tcod.console.Console, game_map: "GameMap") -> None:
     console.ch[viewport] = ch
 
 
+def render_stairs(console: tcod.console.Console, game_map: "GameMap") -> None:
+    """Render up and down stairs if visible."""
+    if game_map.up_stairs:
+        ux, uy = game_map.up_stairs
+        if game_map.tiles[ux, uy]["visible"]:
+            console.print(
+                x=layout.MAP_X + ux,
+                y=layout.MAP_Y + uy,
+                string="<",
+                fg=(200, 200, 200),
+            )
+    if game_map.down_stairs:
+        dx, dy = game_map.down_stairs
+        if game_map.tiles[dx, dy]["visible"]:
+            console.print(
+                x=layout.MAP_X + dx,
+                y=layout.MAP_Y + dy,
+                string=">",
+                fg=(200, 200, 200),
+            )
+
+
 def render_entities(
     console: tcod.console.Console,
     entities: Iterable["Entity"],
@@ -58,6 +80,7 @@ def render_sidebar(
     player: "Entity",
     inventory: list | None = None,
     equipment: dict | None = None,
+    depth: int = 1,
 ) -> None:
     console.draw_frame(
         x=layout.SIDEBAR_X,
@@ -105,6 +128,12 @@ def render_sidebar(
                 string=f"Wpn: {weapon.name}",
             )
             y += 2
+
+    console.print(
+        x=layout.SIDEBAR_X + 2,
+        y=y,
+        string=f"Depth: {depth}",
+    )
 
 
 def render_log(console: tcod.console.Console, messages: list[str]) -> None:

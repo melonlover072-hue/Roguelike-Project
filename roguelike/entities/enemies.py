@@ -1,6 +1,7 @@
 from roguelike.entities.ai import BasicMonster
 from roguelike.entities.entity import Entity
 from roguelike.entities.fighter import Fighter
+from roguelike.entities.item import create_dagger, create_sword, create_axe
 
 
 def create_rat(x: int, y: int) -> Entity:
@@ -11,7 +12,11 @@ def create_rat(x: int, y: int) -> Entity:
         color=(139, 69, 19),
         name="Rat",
         blocks_movement=True,
-        fighter=Fighter(hp=5, defense=0, power=2),
+        fighter=Fighter(
+            hp=5,
+            defense=0,
+            power=2,
+        ),
         ai=BasicMonster(),
     )
 
@@ -24,7 +29,11 @@ def create_wolf(x: int, y: int) -> Entity:
         color=(180, 180, 180),
         name="Wolf",
         blocks_movement=True,
-        fighter=Fighter(hp=10, defense=1, power=3),
+        fighter=Fighter(
+            hp=10,
+            defense=1,
+            power=3,
+        ),
         ai=BasicMonster(),
     )
 
@@ -37,19 +46,46 @@ def create_skeleton(x: int, y: int) -> Entity:
         color=(220, 220, 200),
         name="Skeleton",
         blocks_movement=True,
-        fighter=Fighter(hp=16, defense=2, power=5),
+        fighter=Fighter(
+            hp=16,
+            defense=2,
+            power=5,
+        ),
         ai=BasicMonster(),
     )
 
 
-def create_goblin(x: int, y: int) -> Entity:
-    return Entity(
+def create_goblin(x: int, y: int, weapon: str | None = None) -> Entity:
+    """Create a goblin. Optionally armed with a weapon that boosts power and drops on death."""
+    power = 2
+    loot = []
+
+    if weapon == "dagger":
+        power += 1
+        loot.append(create_dagger())
+    elif weapon == "sword":
+        power += 2
+        loot.append(create_sword())
+    elif weapon == "axe":
+        power += 3
+        loot.append(create_axe())
+
+    goblin = Entity(
         x=x,
         y=y,
         char="g",
         color=(80, 180, 80),
         name="Goblin",
         blocks_movement=True,
-        fighter=Fighter(hp=7, defense=1, power=2),
+        fighter=Fighter(
+            hp=7,
+            defense=1,
+            power=power,
+        ),
         ai=BasicMonster(),
     )
+
+    if loot:
+        goblin.loot = loot
+
+    return goblin
