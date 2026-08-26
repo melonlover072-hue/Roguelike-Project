@@ -228,7 +228,7 @@ def test_bump_attack_deals_damage():
 
     assert enemy.fighter.hp < start_hp
     assert engine.player.x == 5  # Did not move onto enemy tile
-    assert "attacks Wolf" in engine.messages[-2]
+    assert "attacks Wolf" in engine.messages[-1]
 
 
 def test_bump_attack_kills_enemy():
