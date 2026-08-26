@@ -44,7 +44,7 @@ def main() -> None:
         y=start_y,
         char="@",
         color=(255, 255, 255),
-        name="Player",
+        name="Hero",
         fighter=Fighter(hp=30, defense=2, power=5),
     )
 

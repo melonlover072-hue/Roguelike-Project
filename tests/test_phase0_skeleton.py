@@ -38,7 +38,7 @@ def make_engine():
         y=5,
         char="@",
         color=(255, 255, 255),
-        name="Player",
+        name="Hero",
         fighter=Fighter(hp=30, defense=2, power=5),
     )
     return Engine(player=player, game_map=game_map), game_map
