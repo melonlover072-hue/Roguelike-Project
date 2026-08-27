@@ -12,7 +12,7 @@ from roguelike.entities.ai import BasicMonster, CowardlyAI, SlowAI, MimicAI
 from roguelike.entities.entity import Entity
 from roguelike.entities.enemies import (
     create_rat, create_wolf, create_goblin,
-    create_kobold, create_zombie, create_mimic, create_giant_spider,
+    create_bat, create_kobold, create_zombie, create_mimic, create_giant_spider,
     create_orc, create_dark_knight, create_dragon, create_rat_king,
 )
 from roguelike.entities.fighter import Fighter
@@ -38,7 +38,7 @@ def make_engine():
         y=5,
         char="@",
         color=(255, 255, 255),
-        name="Hero",
+        name="Player",
         fighter=Fighter(hp=30, defense=2, power=5),
     )
     return Engine(player=player, game_map=game_map), game_map
@@ -425,13 +425,15 @@ def test_poison_kills_entity():
 def test_giant_spider_applies_poison_on_hit():
     engine, _ = make_engine()
     engine.player.x, engine.player.y = 5, 5
+    engine.player.fighter.power = 1  # Weak hit so spider survives
 
     spider = create_giant_spider(x=6, y=5)
     engine.entities.append(spider)
-    # Force poison to always proc
-    engine.rng = type("Rng", (), {"random": lambda self: 0.0})()
+    # Force poison to always proc (30% chance normally)
+    spider.fighter.on_hit_status = [("poison", 1.0, 3)]
 
-    MovementAction(dx=1, dy=0).perform(engine)
+    # Spider attacks player (adjacent)
+    spider.ai.take_turn(spider, engine)
 
     assert len(engine.player.fighter.status_effects) > 0
     assert any(e.name == "poison" for e in engine.player.fighter.status_effects)
